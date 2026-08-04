@@ -22,6 +22,7 @@ import { ghGraphql } from './lib/gh.mjs';
 import {
   addItem,
   applyFields,
+  listItemIssues,
   readSingleSelectValues,
   resolveProject,
 } from './lib/project.mjs';
@@ -154,10 +155,29 @@ async function findWayfinderIssues(login) {
     }));
 }
 
+/** Dedupe key for an `{owner, repo, number}` reference. */
+const refKey = (ref) => `${ref.owner}/${ref.repo}#${ref.number}`;
+
 async function handleReconcile(getProject) {
   const project = await getProject();
-  const issues = await findWayfinderIssues(project.login);
-  console.log(`Reconciling ${issues.length} wayfinder issue(s).`);
+
+  // Two sources, because neither alone is complete:
+  //   - the search finds wayfinder issues that are not on the board yet
+  //   - the board finds items GitHub auto-added, which the search misses when
+  //     they are closed (it only matches open issues)
+  const [found, onBoard] = await Promise.all([
+    findWayfinderIssues(project.login),
+    listItemIssues(project),
+  ]);
+
+  const byKey = new Map();
+  for (const ref of [...found, ...onBoard]) byKey.set(refKey(ref), ref);
+  const issues = [...byKey.values()];
+
+  console.log(
+    `Reconciling ${issues.length} issue(s) ` +
+      `(${found.length} from search, ${onBoard.length} on the board).`,
+  );
 
   let failures = 0;
   for (const ref of issues) {

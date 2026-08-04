@@ -110,6 +110,58 @@ export async function addItem(project, issue) {
 }
 
 /**
+ * Every issue currently on the board, as `{owner, repo, number}`.
+ *
+ * Needed because GitHub adds items we never touched: the built-in "Auto-add
+ * sub-issues to project" workflow puts a map's children on the board as soon as
+ * the map is there. Those cards arrive with no field values, and a *closed* one
+ * will never see another issue event, so nothing would ever populate it. A
+ * reconcile that only searched open issues could not reach them.
+ */
+export async function listItemIssues(project) {
+  const query = `
+    query($id: ID!, $cursor: String) {
+      node(id: $id) {
+        ... on ProjectV2 {
+          items(first: 100, after: $cursor) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              content {
+                ... on Issue { number repository { name owner { login } } }
+              }
+            }
+          }
+        }
+      }
+    }`;
+
+  const issues = [];
+  let cursor = null;
+
+  do {
+    // `gh api -F` has no way to send a null, so the variable is omitted entirely
+    // on the first page rather than passed as an empty string.
+    const variables = cursor ? { id: project.id, cursor } : { id: project.id };
+    const data = await ghGraphql(query, variables);
+    const items = data?.node?.items;
+
+    for (const node of items?.nodes ?? []) {
+      const content = node?.content;
+      if (!content?.number) continue; // draft items and pull requests
+      issues.push({
+        owner: content.repository.owner.login,
+        repo: content.repository.name,
+        number: content.number,
+      });
+    }
+
+    cursor = items?.pageInfo?.hasNextPage ? items.pageInfo.endCursor : null;
+  } while (cursor);
+
+  return issues;
+}
+
+/**
  * The card's current single-select values, keyed by field name.
  *
  * This is what makes "write `Mode` only once" actually safe. Deciding it from
