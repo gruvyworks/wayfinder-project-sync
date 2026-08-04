@@ -1,223 +1,103 @@
-# Wayfinder → GitHub Projects sync: build brief
+# Wayfinder → GitHub Projects sync: operational handoff
 
-Handoff from a design session. Everything below is decided unless marked **OPEN**.
-Build this in a new private repo `wayfinder-project-sync` on the personal account.
+## Goal
 
----
+Keep Wayfinder map and ticket issues from multiple repositories synchronized into one
+Trello-like GitHub Project without modifying or vendoring the Wayfinder skill. Issues remain
+owned by their source repositories; the shared Project is the planning surface.
 
-## 1. Goal
+The authoritative implementation and setup documentation is [README.md](README.md). Read it
+before changing authentication, field semantics, reconciliation, or repository onboarding.
 
-Wayfinder (`mattpocock/skills`, `/wayfinder`) charts big efforts as a map issue plus
-child "decision ticket" issues on GitHub. This project makes those issues show up and
-move themselves on a single GitHub Project board — **without vendoring or modifying the
-wayfinder skill**.
+## Current progress
 
-The board is also the user's general-purpose work + personal task board, so wayfinder
-items are one citizen among others, not the whole board.
+The implementation is complete on `main`, published as `v1`, and matches `origin/main` at
+`40ab5e8`.
 
-## 2. Why no skill changes are needed
+- `169369c` built the composite action, reusable event workflow, hourly reconciliation,
+  idempotent project setup, pure derivation core, and tests.
+- `390d48b` moved the design to an organization-owned Project authenticated by a GitHub App,
+  and renamed `Type` to `Kind` because `Type` is reserved on organization Projects.
+- `40ab5e8` fixed reconciliation to merge search results with existing Project items, ensuring
+  closed or auto-added cards are not missed.
 
-Wayfinder is tracker-agnostic. Its GitHub tracker doc drives everything through plain
-`gh` CLI calls, so it already emits an unambiguous, machine-readable signature. We react
-to that from the GitHub side; the skill never learns the Project exists.
+The deployed target is:
 
-Reference (read these before building):
-- `skills/engineering/wayfinder/SKILL.md` in `mattpocock/skills`
-- `skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md` — the "Wayfinding
-  operations" section is the exact contract we're consuming.
+- Hub: <https://github.com/gruvyworks/wayfinder-project-sync>
+- Project: <https://github.com/orgs/gruvyworks/projects/1> (`Board`)
+- Board view: <https://github.com/orgs/gruvyworks/projects/1/views/2> (`Wayfinder lanes`)
+- Authentication: organization-owned GitHub App; no long-lived PAT in workflows
+- Derived fields: `Wayfinder`, `Kind`, and initially-unset `Mode`; human-owned fields such as
+  `Status` and `Context` are preserved
 
-## 3. The contract wayfinder already emits
+Two private multi-repository fixtures were added on 2026-08-04:
 
-| Wayfinder concept | What lands on GitHub | Target Project state |
-|---|---|---|
-| Map | issue labelled `wayfinder:map` | `Type = map`; sub-issue progress rolls up natively |
-| Ticket | **sub-issue** of the map, labelled `wayfinder:<type>` | `Type = research \| prototype \| grilling \| task` |
-| HITL/AFK | implied by type: `research` = AFK, `prototype`/`grilling` = HITL, `task` = either | `Mode` field |
-| Claimed | `gh issue edit <n> --add-assignee @me` — the session's first write | `Status = In progress` |
-| Blocked | native issue dependencies (`blocked_by`) | `Status = Blocked` |
-| Frontier | open + unassigned + zero open blockers | `Status = Ready` |
-| Resolved | resolution comment, then `gh issue close` | `Status = Done` |
+- <https://github.com/gruvyworks/wayfinder-sync-test-2> contains the Atlas map.
+- <https://github.com/gruvyworks/wayfinder-sync-test-3> contains the Beacon map.
 
-Note `task` is genuinely ambiguous between HITL and AFK — the skill decides per ticket and
-does not encode it in a label. Default `Mode = HITL` for `task` and let the human override
-on the card. Do not try to infer it from the body.
+Each fixture has one map and four sub-issues representing `Ready`, `In progress`, `Blocked`,
+and `Done`. Both repositories are linked to Project #1. Manual reconciliation populated all
+ten cards, and deployed workflow run
+<https://github.com/gruvyworks/wayfinder-project-sync/actions/runs/30905902149> completed
+successfully, proving the hub's GitHub App can read and reconcile both repositories.
 
-## 4. Architecture (decided)
+The focused suite currently has 37 passing tests:
 
-**Hub-and-stub.** One private hub repo holds all logic; each participating repo gets a
-~12-line caller.
-
-```
-wayfinder-project-sync/
-├── action.yml                      # composite action: the derivation logic
-├── .github/workflows/
-│   ├── sync.yml                    # on: workflow_call — thin wrapper callers use
-│   └── reconcile.yml               # on: schedule (hourly) + workflow_dispatch
-├── scripts/
-│   ├── setup-project.sh            # one-time: create project + fields
-│   └── derive.mjs                  # status derivation, called by action.yml
-├── stub/wayfinder.yml              # copy-paste into each participating repo
-├── HANDOFF.md                      # this file
-└── README.md
+```sh
+node --test 'scripts/lib/*.test.mjs'
 ```
 
-Rejected alternatives and why:
-- *Copy workflows into every repo* — no single place to fix the derivation logic.
-- *Fully central, cron-only, no per-repo files* — loses event-driven response; claiming a
-  ticket wouldn't move its card until the next sweep, which makes the board feel dead
-  during a session.
+## What worked
 
-The hub stays **private**. Set Settings → Actions → General → Access to
-"Accessible from repositories owned by `<USER>` user" — this works for personal accounts.
+- Consuming Wayfinder's existing `wayfinder:*` labels, assignment, sub-issues, and dependency
+  graph provides a stable one-way contract; the skill needs no Project awareness.
+- GitHub GraphQL exposes the open blocker count, parent relationship, issue state, and Project
+  membership needed by the sync in one issue-context query.
+- Combining open label search with items already on the board makes reconciliation cover both
+  newly discovered open issues and closed/auto-added cards.
+- Keeping Wayfinder state separate from GitHub's built-in `Status` avoids automation fighting
+  the human-facing workflow.
+- Reading a card's current `Mode` before deriving fields preserves human HITL/AFK overrides.
+- A public hub gives cross-organization callers access and free scheduled Actions minutes,
+  while each organization still owns its own board and GitHub App.
 
-Tag the hub `v1` and have stubs reference `@v1`. This is the entire payoff over
-copy-paste: fix the logic once, every repo picks it up.
+## What did not work / constraints
 
-## 5. The stub (goes in each participating repo)
+- The original handoff proposed a private personal hub and PAT. That was superseded: user-owned
+  Projects cannot use the least-privilege organization `Projects` permission, and private hubs
+  cannot be consumed across accounts.
+- REST issue payloads do not contain the proposed `issue_dependencies_summary`; the
+  implementation uses GraphQL `issueDependenciesSummary`.
+- GitHub Actions has no `issue_dependencies` or `sub_issues` trigger. Dependency wiring can
+  therefore drift until sibling recomputation, hourly reconciliation, or manual dispatch.
+- GitHub's public GraphQL API can create a board view but cannot set its column or horizontal
+  grouping fields. The `Wayfinder lanes` view exists, but its final layout must be configured in
+  the GitHub UI: columns = `Wayfinder`, group by = `Repository`.
+- No browser was available in the session that created the view, so that UI-only step remains.
+- The two new fixtures intentionally have no committed reusable-workflow stub or per-repository
+  secrets. They participate through the working hourly hub reconciliation. Immediate event-driven
+  updates require explicitly committing `stub/wayfinder.yml` and configuring the two App secrets
+  in each repository.
+- The connected Codex GitHub app did not immediately see the newly created private fixtures;
+  authenticated `gh` calls were used to seed them. This did not affect the deployed sync App,
+  which was verified by the successful reconciliation run above.
 
-```yaml
-name: wayfinder
-on:
-  issues:
-    types: [opened, labeled, unlabeled, assigned, unassigned, closed, reopened]
-jobs:
-  sync:
-    uses: <USER>/wayfinder-project-sync/.github/workflows/sync.yml@v1
-    secrets: inherit
-```
+## Next steps
 
-`secrets: inherit` passes the **caller's** secrets, not the hub's — so the PAT must exist
-as a secret in every participating repo. There is no way around this on a personal
-account. Two one-time steps per repo: drop the stub, add the secret.
+1. Open the `Wayfinder lanes` view and set columns to `Wayfinder` and grouping to `Repository`.
+2. Decide whether the two fixtures need event-driven updates. If hourly reconciliation is enough,
+   do nothing. Otherwise, explicitly authorize commits, add the reusable workflow stub to both
+   repositories, and configure `WAYFINDER_APP_ID` plus `WAYFINDER_APP_PRIVATE_KEY` in each.
+3. Exercise a live transition after the view is configured: assign a Ready ticket, close a
+   blocker, and confirm the cards move as expected.
+4. If code changes are needed, add or update the lowest-seam automated test first, run the focused
+   suite, then run one deployed reconciliation for end-to-end verification.
 
-## 6. Derivation rules
+## Suggested skills
 
-Run on every triggering issue event, for the issue in the payload:
-
-```
-if not any label matching /^wayfinder:/ -> exit 0 (not ours)
-
-add item to project if absent
-
-Type  = label wayfinder:<x>  ->  x   (map | research | prototype | grilling | task)
-Mode  = research -> AFK
-        prototype, grilling -> HITL
-        task -> HITL (default; human may override)
-        map -> unset
-
-Status:
-  issue closed                     -> Done
-  assignee present                 -> In progress
-  open blockers > 0                -> Blocked
-  otherwise                        -> Ready
-```
-
-Open blockers come from the issue's `issue_dependencies_summary.blocked_by` (open blockers
-only — it is the live gate). Fetch via `gh api repos/{owner}/{repo}/issues/{n}`.
-
-**Sibling recompute:** on `issues.closed` and `issues.reopened`, after handling the issue
-itself, re-derive every open sibling under the same map — closing a blocker is what
-unblocks its dependents, and nothing else will notify us.
-
-Do not fight the built-in "closed → Done" project workflow; leave it enabled. The explicit
-Done write is belt-and-braces for items whose status we also touch.
-
-## 7. Known gap — read this before designing around it
-
-GitHub has `issue_dependencies` and `sub_issues` **webhook** events, but **neither is
-available as an Actions trigger**. Only the `issues` event is. Verified against
-docs.github.com "Events that trigger workflows".
-
-Consequence: wayfinder wires blocking edges in a deliberate *second pass* after creating
-tickets, so freshly-charted tickets will briefly show as `Ready` before settling to
-`Blocked`.
-
-Mitigation, in priority order:
-1. Sibling recompute on `issues.closed` covers the transition that actually matters during
-   normal work (blocked → ready).
-2. `reconcile.yml` on an **hourly** schedule sweeps all maps and corrects drift.
-3. `workflow_dispatch` on reconcile for manual "fix it now".
-
-Do **not** make the cron more frequent than hourly — see budgets.
-
-## 8. Budgets and platform limits (all verified)
-
-- GitHub Free: **2,000 Actions minutes/month** for private repos. Public repos are free.
-  One hourly hub cron ≈ 720 runs/month. The same cron copied into six repos ≈ 4,300 runs
-  and blows the budget — this is why reconcile lives only in the hub.
-- The built-in project **auto-add workflow is limited to 1 on GitHub Free** (Pro: 5) and is
-  scoped to one repo per workflow. Do not rely on it. Add items from within our own
-  workflow, or use `actions/add-to-project` with
-  `labeled: wayfinder:map,wayfinder:research,wayfinder:prototype,wayfinder:grilling,wayfinder:task`
-  and `label-operator: OR`.
-- Projects cap: 50,000 items, 50 fields. Not a concern.
-- Sub-issues: 100 children per parent, 8 levels of nesting. Children **may** live in a
-  different repo than the parent — the sync must not assume same-repo.
-
-## 9. Token
-
-Fine-grained PAT, stored as a secret (suggest `WAYFINDER_PROJECT_TOKEN`) in each
-participating repo:
-- Organization/account permissions: **Projects — read & write**
-- Repository permissions: **Issues — read**, **Metadata — read**
-
-Classic PAT equivalent is `project` + `repo`. Prefer fine-grained.
-
-`GITHUB_TOKEN` is **not** sufficient — it cannot write to Projects.
-
-## 10. One-time project setup
-
-`scripts/setup-project.sh` should be idempotent and use the `gh` CLI. The `gh project`
-commands need the `project` scope:
-
-```bash
-gh auth refresh -s project,read:project
-```
-
-Then roughly:
-
-```bash
-gh project create --owner @me --title "Board"
-gh project field-create <n> --owner @me --name "Type" --data-type SINGLE_SELECT \
-  --single-select-options "map,research,prototype,grilling,task"
-gh project field-create <n> --owner @me --name "Mode" --data-type SINGLE_SELECT \
-  --single-select-options "HITL,AFK"
-```
-
-`Status` already exists on a new project with Todo/In Progress/Done — extend it with
-`Ready` and `Blocked`. `gh project field-create` cannot edit an existing field's options,
-so this step needs the GraphQL API (`updateProjectV2Field`) or a documented manual step.
-Decide which and say so in the README.
-
-Field and option IDs must be resolved at runtime by name (`gh project field-list --format json`),
-not hardcoded — the user may rename things.
-
-## 11. Explicitly out of scope
-
-- **The employer's org.** A private personal hub cannot be consumed by another account's
-  repos at all, org Actions policy may block a public one, and fine-grained PAT approval by
-  an org owner is the default policy. Beyond that, mirroring employer issue bodies into a
-  personal-account board is a data-governance problem. If work repos are ever wanted, the
-  answer is a second copy of this hub inside the employer's org, feeding an org-owned
-  project. Do not build cross-account support.
-- Modifying the wayfinder skill, or vendoring it.
-- Two-way sync. This is strictly GitHub → Project. Moving a card must not write back.
-
-## 12. Acceptance criteria
-
-1. Create an issue labelled `wayfinder:grilling` in a participating repo → card appears
-   with `Type = grilling`, `Mode = HITL`, `Status = Ready`.
-2. Assign it → `Status = In progress`.
-3. Add a blocker dependency, run reconcile → `Status = Blocked`.
-4. Close the blocker → sibling recompute fires, dependent returns to `Ready`.
-5. Close the ticket → `Status = Done`.
-6. A non-wayfinder issue in the same repo → workflow exits without touching the project.
-7. A sub-issue in a *different* repo from its map is handled correctly.
-
-## 13. OPEN — confirm with the user before building
-
-- Project name, and whether wayfinder items share the existing work+personal board or get
-  their own.
-- Whether `Status` gains `Ready`/`Blocked`, or whether wayfinder state lives in a separate
-  `Wayfinder` field so the human-facing Status column stays simple.
-- Which repos participate initially.
+- Use `github:github` for inspecting the shared Project, fixture issues, and deployed workflow
+  state.
+- Use `diagnosing-bugs` if a card derives the wrong state or a reconciliation run fails.
+- Use `tdd` for any derivation or reconciliation behavior change.
+- Use `github:gh-fix-ci` only if a GitHub Actions check or reconciliation workflow fails.
+- Use `handoff` after materially changing deployment, fixture, or operational state.
