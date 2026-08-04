@@ -26,7 +26,10 @@ PROJECT_TITLE="${PROJECT_TITLE:-Board}"
 # separate personal work from everything else.
 FIELDS=(
   "Wayfinder:Ready,Blocked,In progress,Done"
-  "Type:map,research,prototype,grilling,task"
+  # Named `Kind`, not `Type`: `Type` is a reserved field name on organisation-owned
+  # projects, where GitHub's native issue types claim it. It is accepted on a
+  # user-owned project, so this only bites once the board moves to an org.
+  "Kind:map,research,prototype,grilling,task"
   "Mode:HITL,AFK"
   "Context:personal,work"
 )

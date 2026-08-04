@@ -15,8 +15,8 @@ among others, not the whole board.
 
 | Wayfinder concept | On GitHub | On the board |
 |---|---|---|
-| Map | issue labelled `wayfinder:map` | `Type = map`; sub-issue progress rolls up natively |
-| Ticket | sub-issue of the map, labelled `wayfinder:<type>` | `Type = research \| prototype \| grilling \| task` |
+| Map | issue labelled `wayfinder:map` | `Kind = map`; sub-issue progress rolls up natively |
+| Ticket | sub-issue of the map, labelled `wayfinder:<type>` | `Kind = research \| prototype \| grilling \| task` |
 | HITL / AFK | implied by type | `Mode` |
 | Claimed | assigned — a session's first write | `Wayfinder = In progress` |
 | Blocked | native issue dependencies | `Wayfinder = Blocked` |
@@ -32,7 +32,7 @@ Precedence is: closed beats assigned beats blocked. An assigned-but-blocked tick
 |---|---|---|
 | `Status` | **human only** | Built-in. Left exactly as GitHub created it. |
 | `Wayfinder` | sync | Ready / Blocked / In progress / Done |
-| `Type` | sync | map / research / prototype / grilling / task |
+| `Kind` | sync | map / research / prototype / grilling / task |
 | `Mode` | sync, **only while unset** | HITL / AFK |
 | `Context` | **human only** | personal / work — for filtering views |
 
@@ -48,6 +48,10 @@ Two deliberate choices worth knowing:
   inferring "new" from the issue's project membership is unreliable, because that snapshot can be
   stale and pages out for an issue on many projects. Getting it wrong silently destroys the
   override, so it is checked directly. `Context` is never written at all.
+
+The type field is called `Kind` rather than the more obvious `Type` because **`Type` is a reserved
+field name on organisation-owned projects**, where GitHub's native issue types claim it. A
+user-owned project accepts it, so this only surfaces once the board lives in an org.
 
 Field and option IDs are resolved at runtime **by name**, so renaming a field in the UI is safe;
 renaming it to something the sync does not know produces a warning and a skipped write, not a crash.
@@ -75,14 +79,29 @@ It prints the two `gh variable set` commands to run afterwards. Those variables 
 
 ### 3. Create the token
 
-A fine-grained PAT. `GITHUB_TOKEN` is **not** sufficient — it cannot write to Projects.
+`GITHUB_TOKEN` is **not** sufficient — it cannot write to Projects.
 
-- Account permissions: **Projects — read & write**
+Create a **GitHub App** owned by the organisation
+(*Settings → Developer settings → GitHub Apps → New*):
+
+- Organization permissions: **Projects — read & write**
 - Repository permissions: **Issues — read**, **Metadata — read**
+- No webhook needed
+- Install it on the organisation, across all repositories that will participate
 
-Store it as `WAYFINDER_PROJECT_TOKEN` in the hub **and in every participating repo**.
-`secrets: inherit` passes the *caller's* secrets, not the hub's, so there is no way around the
-per-repo copy on a personal account.
+Generate a private key, then store two secrets in **every participating repo**:
+`WAYFINDER_APP_ID` and `WAYFINDER_APP_PRIVATE_KEY`. The workflows exchange them for an
+installation token that expires in an hour, so there is no long-lived credential to rotate.
+
+Two things worth knowing:
+
+- **Why an App and not a PAT.** A `Projects` permission exists only for organisation-owned
+  projects, in both fine-grained PATs and Apps. A *user-owned* board cannot be driven by either,
+  and needs a classic PAT with the broad `repo` scope. Keeping the board in an org is what buys
+  least privilege here.
+- **Why the secrets are per-repo.** `secrets: inherit` passes the *caller's* secrets, not the
+  hub's. Organisation secrets would fix this, but they are not accessible to private repos on
+  GitHub Free — that specific limitation is the one thing a Team plan would buy this project.
 
 ### 4. Make the hub reachable
 
@@ -116,27 +135,32 @@ Three mitigations, in order of how much they matter:
 2. **Hourly reconcile sweep** — corrects everything else.
 3. **`workflow_dispatch`** on reconcile, for "fix it now".
 
-Do not make the cron more frequent than hourly, and do not move it into the stub. One hourly cron
-is ~720 runs/month against GitHub Free's 2,000 minutes; copied into six repos it would be ~4,300.
+Do not move the cron into the stub. It runs here, in a **public** repo, where Actions minutes are
+unlimited — roughly 720 runs a month at no cost. Copied into six *private* participating repos it
+would be ~4,300 runs against a 2,000 minute budget. That asymmetry is the whole reason reconcile
+lives in the hub.
 
-## Forking into an organisation
+## Using this from another organisation
 
-Cross-account sync is not possible: the stub must live in the org's repos, a private personal hub
-cannot be called by another account, and fine-grained PATs are scoped to a single owner. The
-supported answer is a **second copy of this hub inside the org**, feeding an **org-owned** project.
+This hub is public precisely so any organisation can call it — a *private* hub cannot be used
+across accounts at all, and public repos also get unlimited Actions minutes, which is what makes
+the hourly reconcile free.
 
-Note that this gives you two boards, and that is inherent — an org-owned project cannot merge into
-a personal one. It is not something the code can fix.
+**One board per organisation is unavoidable.** A GitHub App, like a fine-grained PAT, is scoped to
+a single owner, so a token cannot span two accounts. This is not something the code can fix; it is
+why the board and the participating repos must share an owner.
 
-Four deltas:
+To point a second organisation at its own board:
 
-1. `PROJECT_OWNER` — set the repo variable to the org login instead of `@me`.
-2. Run `scripts/setup-project.sh` with `PROJECT_OWNER=<org>` to create the org-owned board.
-3. `.github/workflows/sync.yml` and `stub/wayfinder.yml` — update the literal `gruvycodr/...`
-   references. `uses:` cannot be interpolated, so these cannot be made dynamic.
-4. Install the token as an **org-level** secret rather than per-repo.
+1. Create its App and board — same permissions, `scripts/setup-project.sh` with
+   `PROJECT_OWNER=<org>`.
+2. In its stub, pass `project-owner` and `project-number` as inputs to override this hub's
+   defaults. No fork required.
+3. Add `WAYFINDER_APP_ID` and `WAYFINDER_APP_PRIVATE_KEY` to each participating repo.
 
-No logic changes. Everything account-specific is either a repo variable or one of those literals.
+Only a fork into a *different hub* needs code edits, and then only the literal `uses:` references
+in `.github/workflows/sync.yml` and `stub/wayfinder.yml` — `uses:` cannot be interpolated.
+Everything else is a variable.
 
 ## Development
 

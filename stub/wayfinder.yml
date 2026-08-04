@@ -2,11 +2,11 @@
 #
 # Two one-time steps per repo:
 #   1. drop this file in
-#   2. add the WAYFINDER_PROJECT_TOKEN secret
+#   2. add the WAYFINDER_APP_ID and WAYFINDER_APP_PRIVATE_KEY secrets
 #
-# `secrets: inherit` passes the CALLING repo's secrets, not the hub's, so the
-# token must exist in every participating repo. There is no way around this on a
-# personal account.
+# `secrets: inherit` passes the CALLING repo's secrets, not the hub's, so both
+# must exist in every participating repo. Organisation-level secrets would avoid
+# the per-repo copy, but they are not accessible to private repos on GitHub Free.
 name: wayfinder
 
 on:
@@ -15,5 +15,5 @@ on:
 
 jobs:
   sync:
-    uses: gruvycodr/wayfinder-project-sync/.github/workflows/sync.yml@v1
+    uses: gruvyworks/wayfinder-project-sync/.github/workflows/sync.yml@v1
     secrets: inherit

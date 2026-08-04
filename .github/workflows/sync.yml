@@ -17,10 +17,13 @@ on:
         description: 'Login owning the board.'
         required: false
         type: string
-        default: '@me'
+        default: 'gruvyworks'
     secrets:
-      WAYFINDER_PROJECT_TOKEN:
-        description: 'Projects read & write + Issues read. Must exist in the CALLING repo.'
+      WAYFINDER_APP_ID:
+        description: 'GitHub App ID. Must exist in the CALLING repo.'
+        required: true
+      WAYFINDER_APP_PRIVATE_KEY:
+        description: 'GitHub App private key (PEM). Must exist in the CALLING repo.'
         required: true
 
 jobs:
@@ -30,11 +33,22 @@ jobs:
     # card, and most issues in a participating repo are not wayfinder issues.
     if: contains(toJSON(github.event.issue.labels.*.name), 'wayfinder:')
     steps:
-      # `uses:` cannot be interpolated, so this reference is a literal. A fork
-      # into an organisation must edit this one line — see README.
-      - uses: gruvycodr/wayfinder-project-sync@v1
+      # An installation token, minted per run and expiring in an hour — nothing
+      # long-lived to rotate. `owner` widens it from this repo to the whole
+      # installation, which sibling recompute needs: a map's children may live
+      # in a different repo than the map itself.
+      - uses: actions/create-github-app-token@v2
+        id: app-token
         with:
-          token: ${{ secrets.WAYFINDER_PROJECT_TOKEN }}
+          app-id: ${{ secrets.WAYFINDER_APP_ID }}
+          private-key: ${{ secrets.WAYFINDER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # `uses:` cannot be interpolated, so this reference is a literal. A fork
+      # into another organisation must edit this one line — see README.
+      - uses: gruvyworks/wayfinder-project-sync@v1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
           project-owner: ${{ inputs.project-owner }}
           project-number: ${{ inputs.project-number }}
           mode: event

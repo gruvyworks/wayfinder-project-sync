@@ -136,7 +136,7 @@ describe('deriveFields', () => {
     });
     assert.equal(sync, true);
     assert.deepEqual(fields, {
-      Type: 'grilling',
+      Kind: 'grilling',
       Mode: MODE.HITL,
       Wayfinder: STATE.READY,
     });
@@ -182,7 +182,7 @@ describe('deriveFields', () => {
       writeMode: true,
     });
     assert.ok(!('Mode' in fields));
-    assert.equal(fields.Type, 'map');
+    assert.equal(fields.Kind, 'map');
   });
 
   test('Context is never written', () => {
@@ -194,12 +194,12 @@ describe('deriveFields', () => {
     }
   });
 
-  test('unknown type still syncs state but writes no Type', () => {
+  test('unknown type still syncs state but writes no Kind', () => {
     const { sync, fields } = deriveFields(issue({ labels: ['wayfinder:invented'] }), {
       writeMode: true,
     });
     assert.equal(sync, true);
-    assert.ok(!('Type' in fields));
+    assert.ok(!('Kind' in fields));
     assert.equal(fields.Wayfinder, STATE.READY);
   });
 });

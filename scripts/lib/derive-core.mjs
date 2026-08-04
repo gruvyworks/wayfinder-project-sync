@@ -117,7 +117,8 @@ export function deriveFields(issue, { openBlockers = 0, writeMode = false } = {}
     }),
   };
 
-  if (type) fields.Type = type;
+  // `Kind`, not `Type`: `Type` is reserved on organisation-owned projects.
+  if (type) fields.Kind = type;
 
   if (writeMode) {
     const mode = modeFor(type);
