@@ -1,0 +1,40 @@
+name: 'Wayfinder project sync'
+description: 'Derive GitHub Project card state from wayfinder issue labels, assignment and dependencies.'
+
+inputs:
+  token:
+    description: 'Token with Projects read & write and Issues read. GITHUB_TOKEN cannot write Projects.'
+    required: true
+  project-number:
+    description: "The board's number."
+    required: true
+  project-owner:
+    description: 'Login owning the board. `@me` resolves to the token owner.'
+    required: false
+    default: '@me'
+  mode:
+    description: 'event | issue | reconcile'
+    required: false
+    default: 'event'
+  issue-ref:
+    description: 'owner/repo#123, for mode=issue only.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # No setup-node: the script is dependency-free ESM and every current runner
+    # image ships a new enough Node. Skipping the step keeps each run a few
+    # seconds shorter, which matters against a 2,000 minute monthly budget.
+    - name: Derive project state
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PROJECT_OWNER: ${{ inputs.project-owner }}
+        PROJECT_NUMBER: ${{ inputs.project-number }}
+        # Passed through the environment rather than interpolated into the run
+        # block, so nothing from an issue payload can be executed as shell.
+        MODE: ${{ inputs.mode }}
+        ISSUE_REF: ${{ inputs.issue-ref }}
+      run: node "${GITHUB_ACTION_PATH}/scripts/derive.mjs" "${MODE}" "${ISSUE_REF}"

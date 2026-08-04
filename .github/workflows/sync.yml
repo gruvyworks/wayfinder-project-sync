@@ -1,0 +1,40 @@
+# Thin wrapper that participating repos call. See stub/wayfinder.yml.
+#
+# The board's identity lives here, in the hub, so adding a repo never means
+# configuring the board again. A caller may override either input if it ever
+# needs to feed a different board.
+name: wayfinder sync
+
+on:
+  workflow_call:
+    inputs:
+      project-number:
+        description: "The board's number. Defaults to the hub's board."
+        required: false
+        type: string
+        default: '1'
+      project-owner:
+        description: 'Login owning the board.'
+        required: false
+        type: string
+        default: '@me'
+    secrets:
+      WAYFINDER_PROJECT_TOKEN:
+        description: 'Projects read & write + Issues read. Must exist in the CALLING repo.'
+        required: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Cheap gate before spending a runner: only wayfinder issues can change a
+    # card, and most issues in a participating repo are not wayfinder issues.
+    if: contains(toJSON(github.event.issue.labels.*.name), 'wayfinder:')
+    steps:
+      # `uses:` cannot be interpolated, so this reference is a literal. A fork
+      # into an organisation must edit this one line — see README.
+      - uses: gruvycodr/wayfinder-project-sync@v1
+        with:
+          token: ${{ secrets.WAYFINDER_PROJECT_TOKEN }}
+          project-owner: ${{ inputs.project-owner }}
+          project-number: ${{ inputs.project-number }}
+          mode: event

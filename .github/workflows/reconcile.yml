@@ -1,0 +1,34 @@
+# Drift correction.
+#
+# GitHub has `issue_dependencies` and `sub_issues` webhook events, but neither is
+# available as an Actions trigger — only `issues` is. Wayfinder wires blocking
+# edges in a second pass after creating tickets, so a freshly charted ticket
+# shows as Ready until something re-derives it. Sibling recompute on close covers
+# the transition that matters during a session; this sweep catches the rest.
+#
+# This lives ONLY in the hub. One hourly cron is ~720 runs/month against a 2,000
+# minute budget; the same cron copied into six repos would be ~4,300. Do not make
+# it more frequent, and do not move it into the stub.
+name: wayfinder reconcile
+
+on:
+  schedule:
+    - cron: '17 * * * *' # hourly, off the hour to dodge scheduler contention
+  workflow_dispatch:
+
+# A sweep and an event-driven sync writing the same card would race.
+concurrency:
+  group: wayfinder-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          token: ${{ secrets.WAYFINDER_PROJECT_TOKEN }}
+          project-owner: ${{ vars.PROJECT_OWNER || '@me' }}
+          project-number: ${{ vars.PROJECT_NUMBER }}
+          mode: reconcile

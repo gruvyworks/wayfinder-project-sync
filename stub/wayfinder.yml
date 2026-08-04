@@ -1,0 +1,19 @@
+# Copy to .github/workflows/wayfinder.yml in each participating repo.
+#
+# Two one-time steps per repo:
+#   1. drop this file in
+#   2. add the WAYFINDER_PROJECT_TOKEN secret
+#
+# `secrets: inherit` passes the CALLING repo's secrets, not the hub's, so the
+# token must exist in every participating repo. There is no way around this on a
+# personal account.
+name: wayfinder
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled, assigned, unassigned, closed, reopened]
+
+jobs:
+  sync:
+    uses: gruvycodr/wayfinder-project-sync/.github/workflows/sync.yml@v1
+    secrets: inherit
