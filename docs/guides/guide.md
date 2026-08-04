@@ -3,7 +3,7 @@
 Everything about this project in one place: what it is, how it derives board state, how the
 pieces fit together, why the design landed where it did, and where the deployment stands. It
 supersedes the retired operational handoff and complements the setup-focused
-[README.md](../README.md); for a two-minute pitch see [intro.md](intro.md).
+[README.md](../../README.md); for a two-minute pitch see [intro.md](../reference/intro.md).
 
 ## 1. Intent
 
@@ -198,7 +198,7 @@ anywhere in the workflows.
 
 ## 6. Setup and operations
 
-Full step-by-step setup is in [README.md](../README.md); in short:
+Full step-by-step setup is in [README.md](../../README.md); in short:
 
 1. `gh auth refresh -s project,read:project` (the `project` scope is not in a default login).
 2. `PROJECT_TITLE="Board" ./scripts/setup-project.sh` — idempotent; prints the two

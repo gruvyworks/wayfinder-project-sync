@@ -101,7 +101,7 @@ async function handleEvent(getProject) {
   if (!RECOMPUTE_SIBLINGS_ON.has(action)) return;
 
   // Closing a blocker is what frees its dependents, and no Actions event fires
-  // for the dependency edge itself (docs/guide.md, "Why reconciliation exists").
+  // for the dependency edge itself (docs/guides/guide.md, "Why reconciliation exists").
   const siblings = await fetchOpenSiblings(context);
   const relevant = siblings.filter((s) => isWayfinderIssue(s.labels));
 
