@@ -66,16 +66,53 @@ A normal `gh auth login` does not include it:
 gh auth refresh -s project,read:project
 ```
 
-### 2. Create the board and its fields
+### 2. Create the board, its fields and its views
 
 Idempotent — safe to re-run.
 
 ```
-PROJECT_TITLE="Board" ./scripts/setup-project.sh
+PROJECT_OWNER="my-org" PROJECT_TITLE="Board" ./scripts/setup-project.sh
 ```
 
-It prints the two `gh variable set` commands to run afterwards. Those variables are what
+It creates the four fields the sync writes (`Wayfinder`, `Kind`, `Mode`, `Context`), the five it
+does not (`Priority`, `Size`, `Estimate`, `Start date`, `Target date`), and seven views. Then it
+prints the two `gh variable set` commands to run afterwards. Those variables are what
 `reconcile.yml` reads.
+
+| View | Shows |
+|---|---|
+| `All maps` | The landing view: one row per effort, filtered to `label:"wayfinder:map"`, sub-issue progress rolling up natively. The label is quoted because the value contains a colon. |
+| `All items` | Everything, flat and ungrouped |
+| `Backlog`, `Priority board` | Boards in `Status` columns, the shape GitHub's own templates ship |
+| `Roadmap` | Dates |
+| `My items` | `assignee:@me` |
+| `Wayfinder lanes` | The wayfinder-native board: `Repository`, `Kind`, `Mode`, `Parent issue` |
+
+**Four clicks are left over, and always will be.** `createProjectV2View` takes a name, a layout
+and a set of visible fields; `updateProjectV2View` adds a filter. That is the entire writable
+surface. A view's grouping and sorting are readable over the API but have **no mutation input**,
+so the script prints them instead:
+
+| View | Set by hand |
+|---|---|
+| `All maps` | group by `Status` |
+| `Backlog` | sort by `Priority`, ascending |
+| `Priority board` | group by `Priority` |
+| `Roadmap` | dates from `Start date` / `Target date` |
+
+Board *columns* need no click: a new `BOARD_LAYOUT` view defaults to grouping by `Status`.
+
+Two things the script deliberately does not do:
+
+- **It never updates a view that already exists**, only creates missing ones. Enforcing the
+  configuration on every run would stomp any column you added in the UI — same posture as `Mode`,
+  which is written only while unset. Drift is therefore yours to keep, not the script's to correct.
+- **It leaves `Status` alone**, so a board it creates has GitHub's default `Todo / In Progress /
+  Done` rather than the richer set a template ships. `Status` is human-owned; see above.
+
+The auto-add rule is also not provisionable — only `deleteProjectV2Workflow` exists, with no
+create or update counterpart. Set it under *Project → ⚙️ → Workflows → Auto-add to project*.
+Enabling it backfills every existing match in one burst, which is a fine way to seed a new board.
 
 ### 3. Create the token
 

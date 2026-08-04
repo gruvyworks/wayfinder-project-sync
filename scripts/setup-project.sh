@@ -1,9 +1,10 @@
-  #!/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # One-time, idempotent project setup.
 #
-# Creates the board (if absent) and the single-select fields the sync writes.
-# Safe to re-run: every step checks for what it is about to create.
+# Creates the board (if absent), the fields the sync writes, and the views a
+# human reads it through. Safe to re-run: every step checks for what it is about
+# to create, and never touches what is already there.
 #
 #   PROJECT_OWNER="@me" PROJECT_TITLE="Board" ./scripts/setup-project.sh
 #
@@ -32,6 +33,47 @@ FIELDS=(
   "Kind:map,research,prototype,grilling,task"
   "Mode:HITL,AFK"
   "Context:personal,work"
+  # Neither of these is read or written by the sync. They exist because the views
+  # below group and sort by them, matching what GitHub's own project templates set
+  # up — the board is a general work board, not a wayfinder appliance.
+  "Priority:P0,P1,P2"
+  "Size:XS,S,M,L,XL"
+)
+
+# Field name -> data type, for the fields that are not single-selects.
+PLAIN_FIELDS=(
+  "Estimate:NUMBER"
+  "Start date:DATE"
+  "Target date:DATE"
+)
+
+# Views, as `name|layout|filter|visible fields`.
+#
+# Only those four properties are writable. `createProjectV2View` accepts a name,
+# a layout and a set of visible field ids; `updateProjectV2View` adds a filter.
+# Grouping and sorting are readable on a view but have no mutation input at all,
+# so they cannot be provisioned — the script prints them as a manual tail.
+#
+# A new BOARD_LAYOUT view already defaults its columns to `Status`, so the board
+# views land with the right columns without a click.
+VIEWS=(
+  # The landing view: one row per effort, with sub-issue progress rolling up
+  # natively. Filtered to maps, so it stays a list of efforts rather than a list
+  # of everything — the label is quoted because the value itself contains a colon.
+  #
+  # It is also first because it is a table, like the default view a new project
+  # ships with, which makes adopting that view a pure rename with no relayout.
+  "All maps|TABLE_LAYOUT|label:\"wayfinder:map\"|Title,Status,Linked pull requests,Sub-issues progress,Size,Estimate,Priority,Start date,Target date"
+  "All items|TABLE_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress"
+  "Backlog|BOARD_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress,Priority,Estimate,Size"
+  "Priority board|BOARD_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress,Size,Estimate"
+  # A roadmap shows its date fields, not a column list, and those are not writable.
+  "Roadmap|ROADMAP_LAYOUT||"
+  "My items|TABLE_LAYOUT|assignee:@me|Title,Priority,Linked pull requests,Sub-issues progress,Size,Estimate"
+  # The only view that is about wayfinder rather than about work in general. Its
+  # columns are `Status` by default, which is what you want: the lanes are the
+  # human's, and `Kind` / `Mode` ride along as card metadata.
+  "Wayfinder lanes|BOARD_LAYOUT||Title,Repository,Assignees,Kind,Mode,Parent issue"
 )
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -57,12 +99,15 @@ project_number="$(
     | head -n1
 )"
 
+project_is_new=""
+
 if [[ -z "${project_number}" ]]; then
   echo "Creating project..."
   project_number="$(
     gh project create --owner "${PROJECT_OWNER}" --title "${PROJECT_TITLE}" \
       --format json | jq -r '.number'
   )"
+  project_is_new=1
   echo "Created project #${project_number}"
 else
   echo "Project #${project_number} already exists; leaving it alone."
@@ -89,9 +134,133 @@ for entry in "${FIELDS[@]}"; do
     --single-select-options "${options}" >/dev/null
 done
 
+for entry in "${PLAIN_FIELDS[@]}"; do
+  name="${entry%%:*}"
+  data_type="${entry#*:}"
+
+  if jq -e --arg n "${name}" '.fields[] | select(.name == $n)' <<<"${existing}" >/dev/null; then
+    echo "  field '${name}' exists; skipping."
+    continue
+  fi
+
+  echo "  creating field '${name}' (${data_type})"
+  gh project field-create "${project_number}" \
+    --owner "${PROJECT_OWNER}" \
+    --name "${name}" \
+    --data-type "${data_type}" >/dev/null
+done
+
 # Options on an *existing* field cannot be edited by `gh project field-create`,
 # so a partially-configured field is reported rather than silently tolerated —
 # the sync warns and skips any option it cannot find.
+
+# --- views --------------------------------------------------------------------
+#
+# `gh project` has no view commands, so this half talks to GraphQL directly. The
+# project's node id is enough to address it, which avoids having to resolve
+# whether PROJECT_OWNER is a user or an organisation.
+
+project_id="$(
+  gh project view "${project_number}" --owner "${PROJECT_OWNER}" --format json | jq -r '.id'
+)"
+fields="$(gh project field-list "${project_number}" --owner "${PROJECT_OWNER}" --format json)"
+views="$(
+  gh api graphql -f query='
+    query($id: ID!) {
+      node(id: $id) { ... on ProjectV2 { views(first: 50) { nodes { id name } } } }
+    }' -f id="${project_id}"
+)"
+
+# Comma-separated field names -> a JSON array of ids, in the order asked for.
+# Names that do not resolve are warned about rather than silently dropped: a view
+# missing a column is a lot harder to notice than a line of output.
+visible_field_ids() {
+  local want="$1" view="$2" missing
+
+  if [[ -z "${want}" ]]; then
+    echo "[]"
+    return
+  fi
+
+  missing="$(jq -r --arg names "${want}" \
+    '(($names | split(",")) - [.fields[].name]) | join(", ")' <<<"${fields}")"
+  if [[ -n "${missing}" ]]; then
+    echo "  warning: view '${view}' wants unknown field(s): ${missing}" >&2
+  fi
+
+  jq -c --arg names "${want}" \
+    '. as $p | [($names | split(","))[] | . as $n | ($p.fields[] | select(.name == $n) | .id)]' \
+    <<<"${fields}"
+}
+
+# A brand-new project ships one table view called `View 1`. The first configured
+# view is folded into it, so a fresh board does not end up with a stray sixth
+# view nobody asked for. On an existing board there is nothing to adopt.
+adopt_view_id=""
+if [[ -n "${project_is_new}" ]]; then
+  adopt_view_id="$(
+    jq -r '.data.node.views.nodes[] | select(.name == "View 1") | .id' <<<"${views}" | head -n1
+  )"
+fi
+
+for entry in "${VIEWS[@]}"; do
+  IFS='|' read -r name layout filter visible <<<"${entry}"
+
+  view_id="$(jq -r --arg n "${name}" \
+    '.data.node.views.nodes[] | select(.name == $n) | .id' <<<"${views}" | head -n1)"
+
+  if [[ -n "${view_id}" ]]; then
+    echo "  view '${name}' exists; leaving it alone."
+    continue
+  fi
+
+  ids="$(visible_field_ids "${visible}" "${name}")"
+  config=""
+  if [[ "${ids}" != "[]" ]]; then
+    config=", configuration: { visibleFieldIds: ${ids} }"
+  fi
+
+  if [[ -n "${adopt_view_id}" ]]; then
+    echo "  adopting the default view as '${name}' (${layout})"
+    view_id="$(
+      gh api graphql -f query="
+        mutation(\$v: ID!, \$n: String!, \$l: ProjectV2ViewLayout!) {
+          updateProjectV2View(input: { viewId: \$v, name: \$n, layout: \$l${config} }) {
+            projectV2View { id }
+          }
+        }" -f v="${adopt_view_id}" -f n="${name}" -f l="${layout}" \
+        --jq '.data.updateProjectV2View.projectV2View.id'
+    )"
+    adopt_view_id=""
+  else
+    echo "  creating view '${name}' (${layout})"
+    view_id="$(
+      gh api graphql -f query="
+        mutation(\$p: ID!, \$n: String!, \$l: ProjectV2ViewLayout!) {
+          createProjectV2View(input: { projectId: \$p, name: \$n, layout: \$l${config} }) {
+            projectV2View { id }
+          }
+        }" -f p="${project_id}" -f n="${name}" -f l="${layout}" \
+        --jq '.data.createProjectV2View.projectV2View.id'
+    )"
+  fi
+
+  # A filter is not part of the create input, so it is a second call.
+  if [[ -n "${filter}" ]]; then
+    gh api graphql -f query='
+      mutation($v: ID!, $f: String!) {
+        updateProjectV2View(input: { viewId: $v, filter: $f }) { projectV2View { id } }
+      }' -f v="${view_id}" -f f="${filter}" >/dev/null
+  fi
+done
+
+echo
+echo "Grouping and sorting have no API. Set these four by hand, once:"
+echo
+echo "  All maps       group by Status"
+echo "  Backlog        sort by Priority, ascending"
+echo "  Priority board group by Priority"
+echo "  Roadmap        dates from 'Start date' and 'Target date'"
 echo
 echo "Done. Set this on the hub repo so the workflows can find the board:"
 echo
