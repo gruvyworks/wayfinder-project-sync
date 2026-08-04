@@ -75,7 +75,7 @@ PROJECT_OWNER="my-org" PROJECT_TITLE="Board" ./scripts/setup-project.sh
 ```
 
 It creates the four fields the sync writes (`Wayfinder`, `Kind`, `Mode`, `Context`), the five it
-does not (`Priority`, `Size`, `Estimate`, `Start date`, `Target date`), and seven views. Then it
+does not (`Priority`, `Size`, `Estimate`, `Start date`, `Target date`), and six views. Then it
 prints the two `gh variable set` commands to run afterwards. Those variables are what
 `reconcile.yml` reads.
 
@@ -83,12 +83,12 @@ prints the two `gh variable set` commands to run afterwards. Those variables are
 |---|---|
 | `All maps` | The landing view: one row per effort, filtered to `label:"wayfinder:map"`, sub-issue progress rolling up natively. The label is quoted because the value contains a colon. |
 | `All items` | Everything, flat and ungrouped |
-| `Backlog`, `Priority board` | Boards in `Status` columns, the shape GitHub's own templates ship |
+| `Board` | Cards in `Status` columns, sorted by `Priority`. Not called `Backlog`: `Status` already has an option by that name. `Priority` is a card field here rather than a swimlane — nothing writes it, so a swimlane axis would be empty for most of the board |
 | `Roadmap` | Dates |
 | `My items` | `assignee:@me` |
 | `Wayfinder lanes` | The wayfinder-native board: `Repository`, `Kind`, `Mode`, `Parent issue` |
 
-**Four clicks are left over, and always will be.** `createProjectV2View` takes a name, a layout
+**Three clicks are left over, and always will be.** `createProjectV2View` takes a name, a layout
 and a set of visible fields; `updateProjectV2View` adds a filter. That is the entire writable
 surface. A view's grouping and sorting are readable over the API but have **no mutation input**,
 so the script prints them instead:
@@ -96,8 +96,7 @@ so the script prints them instead:
 | View | Set by hand |
 |---|---|
 | `All maps` | group by `Status` |
-| `Backlog` | sort by `Priority`, ascending |
-| `Priority board` | group by `Priority` |
+| `Board` | sort by `Priority`, ascending |
 | `Roadmap` | dates from `Start date` / `Target date` |
 
 Board *columns* need no click: a new `BOARD_LAYOUT` view defaults to grouping by `Status`.

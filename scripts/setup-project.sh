@@ -65,8 +65,12 @@ VIEWS=(
   # ships with, which makes adopting that view a pure rename with no relayout.
   "All maps|TABLE_LAYOUT|label:\"wayfinder:map\"|Title,Status,Linked pull requests,Sub-issues progress,Size,Estimate,Priority,Start date,Target date"
   "All items|TABLE_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress"
-  "Backlog|BOARD_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress,Priority,Estimate,Size"
-  "Priority board|BOARD_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress,Size,Estimate"
+  # Named `Board`, not `Backlog`: `Status` already has a `Backlog` option, and a
+  # view showing every status under that name reads as a mistake. `Priority` is
+  # shown on the card rather than used as a swimlane — nothing writes it, so most
+  # cards have none, and a swimlane axis that is empty for most of the board is
+  # noise. Sorted by it, unprioritised cards simply fall to the bottom.
+  "Board|BOARD_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress,Priority,Estimate,Size"
   # A roadmap shows its date fields, not a column list, and those are not writable.
   "Roadmap|ROADMAP_LAYOUT||"
   "My items|TABLE_LAYOUT|assignee:@me|Title,Priority,Linked pull requests,Sub-issues progress,Size,Estimate"
@@ -255,12 +259,11 @@ for entry in "${VIEWS[@]}"; do
 done
 
 echo
-echo "Grouping and sorting have no API. Set these four by hand, once:"
+echo "Grouping and sorting have no API. Set these three by hand, once:"
 echo
-echo "  All maps       group by Status"
-echo "  Backlog        sort by Priority, ascending"
-echo "  Priority board group by Priority"
-echo "  Roadmap        dates from 'Start date' and 'Target date'"
+echo "  All maps  group by Status"
+echo "  Board     sort by Priority, ascending"
+echo "  Roadmap   dates from 'Start date' and 'Target date'"
 echo
 echo "Done. Set this on the hub repo so the workflows can find the board:"
 echo

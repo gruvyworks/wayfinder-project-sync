@@ -124,7 +124,7 @@ hub only:   .github/workflows/reconcile.yml   hourly sweep + workflow_dispatch
 | `.github/workflows/sync.yml` | Reusable event workflow. Holds the board's identity (owner/number defaults) so adding a repo never means configuring the board. Gates on a `wayfinder:` label check *before* spending a runner. |
 | `.github/workflows/reconcile.yml` | Hourly cron (`17 * * * *`, off the hour to dodge scheduler contention) plus `workflow_dispatch`, under a concurrency group so a sweep and an event sync cannot race on the same card. |
 | `stub/wayfinder.yml` | What a participating repo copies to `.github/workflows/wayfinder.yml`. |
-| `scripts/setup-project.sh` | One-time, idempotent: creates the board, its fields and its seven views — `All maps` first, filtered to `label:"wayfinder:map"` — then prints the `gh variable set` commands the workflows need. Views go through GraphQL (`gh project` has no view commands); it creates missing views and never updates existing ones, so UI tweaks survive a re-run. Grouping and sorting have no mutation input at all and are printed as a four-click manual tail. |
+| `scripts/setup-project.sh` | One-time, idempotent: creates the board, its fields and its six views — `All maps` first, filtered to `label:"wayfinder:map"` — then prints the `gh variable set` commands the workflows need. Views go through GraphQL (`gh project` has no view commands); it creates missing views and never updates existing ones, so UI tweaks survive a re-run. Grouping and sorting have no mutation input at all and are printed as a three-click manual tail. |
 
 ### Execution modes
 
