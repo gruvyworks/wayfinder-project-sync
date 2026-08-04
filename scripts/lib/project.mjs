@@ -3,7 +3,7 @@
  *
  * Field and option IDs are always resolved at runtime **by name**, never
  * hardcoded — the board is a human's general-purpose work board and they may
- * rename or reorder things (HANDOFF.md §10).
+ * rename or reorder things.
  *
  * Everything is resolved once per process and cached: a sibling recompute can
  * touch dozens of items, and re-fetching the field map for each would be both

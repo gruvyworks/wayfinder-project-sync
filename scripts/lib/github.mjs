@@ -1,7 +1,7 @@
 /**
  * Issue reads, via GraphQL.
  *
- * HANDOFF.md §6 suggested reading `issue_dependencies_summary.blocked_by` from
+ * The original design handoff suggested reading `issue_dependencies_summary.blocked_by` from
  * the REST issue endpoint. That field is not actually present on REST issue
  * payloads — verified against live issues — whereas the GraphQL `Issue` type
  * exposes `issueDependenciesSummary { blockedBy }` with exactly the intended

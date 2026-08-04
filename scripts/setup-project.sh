@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+  #!/usr/bin/env bash
 #
 # One-time, idempotent project setup.
 #

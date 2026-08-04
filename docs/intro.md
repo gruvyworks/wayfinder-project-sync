@@ -53,4 +53,4 @@ Deployed and verified end-to-end: the hub at
 [gruvyworks/wayfinder-project-sync](https://github.com/gruvyworks/wayfinder-project-sync) syncs
 into [org Project #1](https://github.com/orgs/gruvyworks/projects/1), with two multi-repo test
 fixtures reconciling successfully via the App. Full setup and API notes are in the repo's
-README; operational status and next steps in HANDOFF.md.
+README; architecture, operational status, and next steps in [guide.md](guide.md).

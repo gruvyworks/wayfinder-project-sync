@@ -180,7 +180,8 @@ PROJECT_NUMBER=1 node scripts/derive.mjs issue owner/repo#123
 
 ### A note on the API
 
-HANDOFF.md suggested reading `issue_dependencies_summary.blocked_by` from the REST issue endpoint.
+The original design handoff suggested reading `issue_dependencies_summary.blocked_by` from the
+REST issue endpoint.
 That field is not actually present on REST issue payloads. GraphQL's
 `issueDependenciesSummary { blockedBy }` has exactly the intended semantics — open blockers only,
 with `totalBlockedBy` as the all-states count — so the sync uses GraphQL throughout. That also lets
