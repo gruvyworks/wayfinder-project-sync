@@ -64,7 +64,10 @@ VIEWS=(
   # It is also first because it is a table, like the default view a new project
   # ships with, which makes adopting that view a pure rename with no relayout.
   "All maps|TABLE_LAYOUT|label:\"wayfinder:map\"|Title,Status,Linked pull requests,Sub-issues progress,Size,Estimate,Priority,Start date,Target date"
-  "All items|TABLE_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress"
+  # The wayfinder-native fields live here rather than on a board of their own:
+  # `Repository`, `Kind` and `Mode` are things you scan, sort and filter, which a
+  # table does and a card chip does not.
+  "All items|TABLE_LAYOUT||Title,Repository,Assignees,Status,Kind,Mode,Linked pull requests,Sub-issues progress"
   # Named `Board`, not `Backlog`: `Status` already has a `Backlog` option, and a
   # view showing every status under that name reads as a mistake. `Priority` is
   # shown on the card rather than used as a swimlane — nothing writes it, so most
@@ -74,10 +77,6 @@ VIEWS=(
   # A roadmap shows its date fields, not a column list, and those are not writable.
   "Roadmap|ROADMAP_LAYOUT||"
   "My items|TABLE_LAYOUT|assignee:@me|Title,Priority,Linked pull requests,Sub-issues progress,Size,Estimate"
-  # The only view that is about wayfinder rather than about work in general. Its
-  # columns are `Status` by default, which is what you want: the lanes are the
-  # human's, and `Kind` / `Mode` ride along as card metadata.
-  "Wayfinder lanes|BOARD_LAYOUT||Title,Repository,Assignees,Kind,Mode,Parent issue"
 )
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -198,7 +197,7 @@ visible_field_ids() {
 }
 
 # A brand-new project ships one table view called `View 1`. The first configured
-# view is folded into it, so a fresh board does not end up with a stray sixth
+# view is folded into it, so a fresh board does not end up with a stray extra
 # view nobody asked for. On an existing board there is nothing to adopt.
 adopt_view_id=""
 if [[ -n "${project_is_new}" ]]; then

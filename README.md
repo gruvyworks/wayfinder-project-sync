@@ -75,18 +75,17 @@ PROJECT_OWNER="my-org" PROJECT_TITLE="Board" ./scripts/setup-project.sh
 ```
 
 It creates the four fields the sync writes (`Wayfinder`, `Kind`, `Mode`, `Context`), the five it
-does not (`Priority`, `Size`, `Estimate`, `Start date`, `Target date`), and six views. Then it
+does not (`Priority`, `Size`, `Estimate`, `Start date`, `Target date`), and five views. Then it
 prints the two `gh variable set` commands to run afterwards. Those variables are what
 `reconcile.yml` reads.
 
 | View | Shows |
 |---|---|
 | `All maps` | The landing view: one row per effort, filtered to `label:"wayfinder:map"`, sub-issue progress rolling up natively. The label is quoted because the value contains a colon. |
-| `All items` | Everything, flat and ungrouped |
+| `All items` | Everything, flat and ungrouped. Carries the wayfinder-native fields — `Repository`, `Kind`, `Mode` — because those are things you scan, sort and filter, which a table does and a card chip does not |
 | `Board` | Cards in `Status` columns, sorted by `Priority`. Not called `Backlog`: `Status` already has an option by that name. `Priority` is a card field here rather than a swimlane — nothing writes it, so a swimlane axis would be empty for most of the board |
 | `Roadmap` | Dates |
 | `My items` | `assignee:@me` |
-| `Wayfinder lanes` | The wayfinder-native board: `Repository`, `Kind`, `Mode`, `Parent issue` |
 
 **Three clicks are left over, and always will be.** `createProjectV2View` takes a name, a layout
 and a set of visible fields; `updateProjectV2View` adds a filter. That is the entire writable
