@@ -100,6 +100,10 @@ so the script prints them instead:
 
 Board *columns* need no click: a new `BOARD_LAYOUT` view defaults to grouping by `Status`.
 
+"A set of visible fields" is meant literally — it decides *which* fields a view shows, not the
+order its columns appear in. GitHub applies its own ordering whatever order the ids go up in, so
+rearranging columns is a fourth click if you care about it.
+
 Two things the script deliberately does not do:
 
 - **It never updates a view that already exists**, only creates missing ones. Enforcing the

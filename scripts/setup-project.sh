@@ -56,6 +56,10 @@ PLAIN_FIELDS=(
 #
 # A new BOARD_LAYOUT view already defaults its columns to `Status`, so the board
 # views land with the right columns without a click.
+#
+# The visible-field list decides *which* fields a view shows, not what order the
+# columns come out in — GitHub returns its own ordering regardless of the order
+# the ids are submitted in. Read these lists as sets; column order is a UI drag.
 VIEWS=(
   # The landing view: one row per effort, with sub-issue progress rolling up
   # natively. Filtered to maps, so it stays a list of efforts rather than a list
