@@ -126,7 +126,8 @@ sweep for "fix it now".
 
 The cron lives **only in the hub**, and that is an economics decision: a public repo has
 unlimited Actions minutes, where the same cron copied into six private repos would be ~4,300 runs
-against a 2,000-minute budget. Do not make it more frequent, and do not move it into the stub.
+against the 2,000-minute budget a Free plan allows (Team: 3,000). Do not make it more frequent,
+and do not move it into the stub.
 
 ## Using this from another organisation
 

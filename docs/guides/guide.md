@@ -158,8 +158,8 @@ creating tickets, so a freshly charted ticket briefly shows `Ready` before settl
 
 The cron lives **only in the hub**, and this is an economics decision: the hub is public, where
 Actions minutes are unlimited (~720 runs/month at no cost). The same cron copied into six
-private participating repos would be ~4,300 runs against a 2,000-minute monthly budget. Do not
-make it more frequent, and do not move it into the stub.
+private participating repos would be ~4,300 runs against the 2,000-minute monthly budget a Free
+plan allows (Team: 3,000). Do not make it more frequent, and do not move it into the stub.
 
 ### Failure philosophy
 

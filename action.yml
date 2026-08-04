@@ -26,7 +26,8 @@ runs:
   steps:
     # No setup-node: the script is dependency-free ESM and every current runner
     # image ships a new enough Node. Skipping the step keeps each run a few
-    # seconds shorter, which matters against a 2,000 minute monthly budget.
+    # seconds shorter, which matters against the 2,000 minute monthly budget a
+    # Free plan allows (Team: 3,000).
     - name: Derive project state
       shell: bash
       env:

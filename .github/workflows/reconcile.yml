@@ -6,9 +6,10 @@
 # shows as Ready until something re-derives it. Sibling recompute on close covers
 # the transition that matters during a session; this sweep catches the rest.
 #
-# This lives ONLY in the hub. One hourly cron is ~720 runs/month against a 2,000
-# minute budget; the same cron copied into six repos would be ~4,300. Do not make
-# it more frequent, and do not move it into the stub.
+# This lives ONLY in the hub. One hourly cron is ~720 runs/month against the
+# 2,000 minute budget a Free plan allows (Team: 3,000); the same cron copied into
+# six repos would be ~4,300. Do not make it more frequent, and do not move it
+# into the stub.
 name: wayfinder reconcile
 
 on:
