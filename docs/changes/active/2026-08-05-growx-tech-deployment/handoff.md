@@ -128,7 +128,22 @@ scoped by owner, not by repository set. See
 
 ## Outstanding
 
-1. Project manual settings the setup script cannot apply: group `All maps` by
-   `Status`, sort `Board` by `Priority` ascending, and point `Roadmap` at
-   `Start date` / `Target date`.
-2. Confirm one cron-triggered sweep before widening the rollout.
+1. Confirm one cron-triggered sweep. Only `workflow_dispatch` has run.
+   `reconcile.yml` fires `17 6-16 * * 1-5` UTC; any run in the deployment
+   repository with event `schedule` settles this.
+
+## Deferred
+
+**Phase 2 step 3, the manual Project view settings, was not applied**: group
+`All maps` by `Status`, sort `Board` by `Priority` ascending, and point
+`Roadmap` at `Start date` / `Target date`. Confirmed unset — `groupByFields`
+and `sortByFields` are empty on all five views.
+
+These have no mutation API, so they are UI-only, and the current Projects
+interface did not expose the controls where expected. Deferred as a
+forward-fix: they affect only how a human reads the board, never what the sync
+derives or writes. Nothing else in this deployment depends on them.
+
+`Priority`, `Start date`, and `Target date` are not written by the sync at all,
+so a `Board` sorted by `Priority` and a populated `Roadmap` both stay empty
+until someone fills those fields by hand regardless.
