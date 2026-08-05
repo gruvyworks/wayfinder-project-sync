@@ -59,10 +59,13 @@ writes (`Context`, `Priority`, `Size`, `Estimate`, `Start date`, `Target date`),
 | View | Shows |
 |---|---|
 | `All maps` | The landing view: one row per effort, filtered to `label:"wayfinder:map"`, sub-issue progress rolling up natively |
-| `All items` | Everything, flat and ungrouped, carrying the wayfinder-native fields `Repository`, `Kind` and `Mode` |
-| `Board` | Cards in `Status` columns, sorted by `Priority` |
+| `All items` | Everything, flat and ungrouped, carrying the wayfinder-native fields `Repository`, `Wayfinder`, `Kind` and `Mode` |
+| `Board` | Cards in `Wayfinder` columns — `Ready`, `Blocked`, `In progress`, `Done` — sorted by `Priority` |
 | `Roadmap` | Dates |
-| `My items` | `assignee:@me` |
+| `My items` | `assignee:@me`, with `Wayfinder` |
+
+Every view that shows tickets shows `Wayfinder`. `All maps` is the exception — a map is never
+claimed, so its state only ever reads `Ready` or `Done`, which `Sub-issues progress` says better.
 
 It then prints the two `gh variable set` commands to run afterwards, setting `PROJECT_OWNER` and
 `PROJECT_NUMBER` on this repo. Those are what `reconcile.yml` reads.

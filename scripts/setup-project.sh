@@ -54,12 +54,22 @@ PLAIN_FIELDS=(
 # Grouping and sorting are readable on a view but have no mutation input at all,
 # so they cannot be provisioned — the script prints them as a manual tail.
 #
-# A new BOARD_LAYOUT view already defaults its columns to `Status`, so the board
-# views land with the right columns without a click.
+# A new BOARD_LAYOUT view defaults its columns to `Status`, which is the one
+# default that has to be corrected by hand: `Status` is human-owned and nothing
+# writes it, so a board columned by it shows every card in one pile forever. The
+# control is `View -> Column by`, not the view tab's menu, and it is read here as
+# `verticalGroupByFields` — `groupByFields` stays empty on a board and reading it
+# alone makes an uncorrected board look correctly configured.
 #
 # The visible-field list decides *which* fields a view shows, not what order the
 # columns come out in — GitHub returns its own ordering regardless of the order
 # the ids are submitted in. Read these lists as sets; column order is a UI drag.
+#
+# `Wayfinder` belongs on every view that shows tickets. It is the only field this
+# repo exists to write, and a view that omits it renders a correctly derived
+# board as a board where nothing ever moves. `All maps` is the exception: a map
+# is never claimed, so its state only ever reads Ready or Done, which
+# `Sub-issues progress` already says better.
 VIEWS=(
   # The landing view: one row per effort, with sub-issue progress rolling up
   # natively. Filtered to maps, so it stays a list of efforts rather than a list
@@ -71,16 +81,16 @@ VIEWS=(
   # The wayfinder-native fields live here rather than on a board of their own:
   # `Repository`, `Kind` and `Mode` are things you scan, sort and filter, which a
   # table does and a card chip does not.
-  "All items|TABLE_LAYOUT||Title,Repository,Assignees,Status,Kind,Mode,Linked pull requests,Sub-issues progress"
+  "All items|TABLE_LAYOUT||Title,Repository,Assignees,Status,Wayfinder,Kind,Mode,Linked pull requests,Sub-issues progress"
   # Named `Board`, not `Backlog`: `Status` already has a `Backlog` option, and a
   # view showing every status under that name reads as a mistake. `Priority` is
   # shown on the card rather than used as a swimlane — nothing writes it, so most
   # cards have none, and a swimlane axis that is empty for most of the board is
   # noise. Sorted by it, unprioritised cards simply fall to the bottom.
-  "Board|BOARD_LAYOUT||Title,Assignees,Status,Linked pull requests,Sub-issues progress,Priority,Estimate,Size"
+  "Board|BOARD_LAYOUT||Title,Assignees,Status,Wayfinder,Linked pull requests,Sub-issues progress,Priority,Estimate,Size"
   # A roadmap shows its date fields, not a column list, and those are not writable.
   "Roadmap|ROADMAP_LAYOUT||"
-  "My items|TABLE_LAYOUT|assignee:@me|Title,Priority,Linked pull requests,Sub-issues progress,Size,Estimate"
+  "My items|TABLE_LAYOUT|assignee:@me|Title,Wayfinder,Priority,Linked pull requests,Sub-issues progress,Size,Estimate"
 )
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -262,10 +272,11 @@ for entry in "${VIEWS[@]}"; do
 done
 
 echo
-echo "Grouping and sorting have no API. Set these three by hand, once:"
+echo "Grouping and sorting have no API. Set these by hand, once, under 'View':"
 echo
-echo "  All maps  group by Status"
+echo "  Board     Column by: Wayfinder   <- without this the board never moves"
 echo "  Board     sort by Priority, ascending"
+echo "  All maps  group by Status"
 echo "  Roadmap   dates from 'Start date' and 'Target date'"
 echo
 echo "Done. Set this on the hub repo so the workflows can find the board:"
