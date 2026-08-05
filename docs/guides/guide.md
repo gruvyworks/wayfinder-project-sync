@@ -117,7 +117,7 @@ hub only:   .github/workflows/reconcile.yml   daytime sweep + workflow_dispatch
 | Path | Role |
 |---|---|
 | `scripts/lib/derive-core.mjs` | **The single source of truth**: given an issue, what should the card look like. Pure — no network, no `gh`, no process state — so the whole rule table is covered by fast offline tests. Everything else is plumbing. |
-| `scripts/lib/github.mjs` | Issue reads via GraphQL. One `IssueCore` fragment fetches labels, state, assignees, open-blocker count, parent map, and project membership in a single round trip. Also fetches open siblings under a map. |
+| `scripts/lib/github.mjs` | Issue reads via GraphQL. One `IssueCore` fragment fetches labels, state, assignees, open-blocker count, parent map, and project membership in a single round trip. Also fetches open siblings under a map, and runs the reconcile sweep's label search — paged, since a single page would silently truncate a busy org at 100 issues. |
 | `scripts/lib/project.mjs` | Project-side plumbing: resolve project and fields by name (cached per process), idempotent `addItem`, read a card's current single-select values, warn-and-skip field writes, paginated board listing. |
 | `scripts/derive.mjs` | Entry point with three modes (below). Resolves the project lazily so non-wayfinder issues exit without any board reads. |
 | `action.yml` | Composite action. Deliberately skips `setup-node` (the script is dependency-free ESM; runner images ship a new-enough Node) to keep runs seconds shorter against the minutes budget. Event inputs pass through the environment, never interpolated into shell, so issue payloads cannot inject commands. |

@@ -156,7 +156,7 @@ Everything else is a variable.
 | Path | Role |
 |---|---|
 | `scripts/lib/derive-core.mjs` | The rule table: given an issue, what the card should look like. Pure — no network, no `gh`, no process state. |
-| `scripts/lib/github.mjs` | GraphQL issue reads; one round trip fetches labels, state, assignees, blockers, parent and project membership. |
+| `scripts/lib/github.mjs` | GraphQL issue reads; one round trip fetches labels, state, assignees, blockers, parent and project membership. Also the paged label search the reconcile sweep runs. |
 | `scripts/lib/project.mjs` | Project resolution and field writes, resolved by name at runtime. |
 | `scripts/lib/gh.mjs` | Thin `gh` CLI wrapper. |
 | `scripts/derive.mjs` | Entry point; modes `event`, `issue`, `reconcile`. |
@@ -174,7 +174,8 @@ node --test 'scripts/lib/*.test.mjs'
 ```
 
 Derivation logic lives in `scripts/lib/derive-core.mjs` and is pure, so the whole rule table is
-covered by fast offline tests. Everything else is plumbing around it.
+covered by fast offline tests. Everything else is plumbing around it — of which only the reconcile
+sweep's paging contract is tested (`github.test.mjs`), because truncation there is silent.
 
 Debug a single issue without waiting for an event:
 

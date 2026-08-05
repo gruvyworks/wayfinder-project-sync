@@ -16,9 +16,13 @@
 
 import { readFile } from 'node:fs/promises';
 
-import { deriveFields, isWayfinderIssue, TYPES } from './lib/derive-core.mjs';
-import { fetchIssueContext, fetchOpenSiblings, warn } from './lib/github.mjs';
-import { ghGraphql } from './lib/gh.mjs';
+import { deriveFields, isWayfinderIssue } from './lib/derive-core.mjs';
+import {
+  fetchIssueContext,
+  fetchOpenSiblings,
+  findWayfinderIssues,
+  warn,
+} from './lib/github.mjs';
 import {
   addItem,
   applyFields,
@@ -122,37 +126,6 @@ async function handleIssueRef(getProject, ref) {
     return;
   }
   await syncIssue(await getProject(), context);
-}
-
-/**
- * Every open issue carrying a wayfinder label, across the board owner's repos.
- * This is the drift correction for state changes that produce no Actions event —
- * principally dependency edges being wired up after a ticket is created.
- */
-async function findWayfinderIssues(login) {
-  const labelFilter = TYPES.map((t) => `wayfinder:${t}`).join(',');
-  const search = `is:issue is:open owner:${login} label:${labelFilter}`;
-
-  const query = `
-    query($search: String!) {
-      search(query: $search, type: ISSUE, first: 100) {
-        nodes {
-          ... on Issue {
-            number
-            repository { name owner { login } }
-          }
-        }
-      }
-    }`;
-
-  const data = await ghGraphql(query, { search });
-  return (data?.search?.nodes ?? [])
-    .filter((n) => n?.number)
-    .map((n) => ({
-      owner: n.repository.owner.login,
-      repo: n.repository.name,
-      number: n.number,
-    }));
 }
 
 /** Dedupe key for an `{owner, repo, number}` reference. */

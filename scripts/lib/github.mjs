@@ -12,6 +12,7 @@
  * single round trip rather than four.
  */
 
+import { TYPES } from './derive-core.mjs';
 import { ghGraphql } from './gh.mjs';
 
 /** Emits a GitHub Actions annotation in CI, a plain warning otherwise. */
@@ -114,6 +115,65 @@ export async function fetchIssueContext(owner, repo, number) {
     : null;
 
   return { ...normaliseIssue(node), parent };
+}
+
+/**
+ * Every open issue carrying a wayfinder label, across the board owner's repos.
+ * This is the drift correction for state changes that produce no Actions event —
+ * principally dependency edges being wired up after a ticket is created.
+ *
+ * Paged, because a single page silently truncates: an org that sustains more
+ * than 100 open wayfinder issues would simply stop having the overflow
+ * reconciled, with nothing in the logs to say so.
+ *
+ * One ceiling remains and cannot be paged around — GitHub's search API returns
+ * at most 1,000 results for any query, however many pages are requested. Past
+ * that, `listItemIssues` still covers everything already on the board; only
+ * issues that are *not yet* on the board would be missed. Splitting the search
+ * per label would be the next move if a board ever gets that big.
+ *
+ * `graphql` is injectable so the paging contract can be tested offline.
+ */
+export async function findWayfinderIssues(login, graphql = ghGraphql) {
+  const labelFilter = TYPES.map((t) => `wayfinder:${t}`).join(',');
+  const search = `is:issue is:open owner:${login} label:${labelFilter}`;
+
+  const query = `
+    query($search: String!, $cursor: String) {
+      search(query: $search, type: ISSUE, first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          ... on Issue {
+            number
+            repository { name owner { login } }
+          }
+        }
+      }
+    }`;
+
+  const issues = [];
+  let cursor = null;
+
+  do {
+    // `gh api -F` has no way to send a null, so the variable is omitted entirely
+    // on the first page rather than passed as an empty string.
+    const variables = cursor ? { search, cursor } : { search };
+    const data = await graphql(query, variables);
+    const result = data?.search;
+
+    for (const node of result?.nodes ?? []) {
+      if (!node?.number) continue; // pull requests, and anything unexpected
+      issues.push({
+        owner: node.repository.owner.login,
+        repo: node.repository.name,
+        number: node.number,
+      });
+    }
+
+    cursor = result?.pageInfo?.hasNextPage ? result.pageInfo.endCursor : null;
+  } while (cursor);
+
+  return issues;
 }
 
 /**
