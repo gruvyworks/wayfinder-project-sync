@@ -6,15 +6,21 @@
 # shows as Ready until something re-derives it. Sibling recompute on close covers
 # the transition that matters during a session; this sweep catches the rest.
 #
-# This lives ONLY in the hub. One hourly cron is ~720 runs/month against the
-# 2,000 minute budget a Free plan allows (Team: 3,000); the same cron copied into
-# six repos would be ~4,300. Do not make it more frequent, and do not move it
-# into the stub.
+# This lives ONLY in the hub. Hourly across the waking window is ~456 runs/month
+# against the 2,000 minute budget a Free plan allows (Team: 3,000); the same cron
+# copied into six repos would be ~2,700. Do not make it more frequent, and do not
+# move it into the stub.
 name: wayfinder reconcile
 
 on:
   schedule:
-    - cron: '17 * * * *' # hourly, off the hour to dodge scheduler contention
+    # Hourly 04:17-18:17 UTC, off the hour to dodge scheduler contention. Actions
+    # cron is UTC and never observes DST, so the window is chosen to sit inside
+    # 05:00-20:00 Europe/Amsterdam under BOTH offsets: 06:17-20:17 CEST and
+    # 05:17-19:17 CET. Widening it either end fires during the quiet hours in one
+    # half of the year. Overnight drift is caught by the first morning sweep, or
+    # by workflow_dispatch.
+    - cron: '17 4-18 * * *'
   workflow_dispatch:
 
 # A sweep and an event-driven sync writing the same card would race.

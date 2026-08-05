@@ -107,7 +107,7 @@ participating repo                          hub (this repo, public)
               scripts/lib/project.mjs       Project resolution + field writes
               scripts/lib/gh.mjs            thin gh CLI wrapper
 
-hub only:   .github/workflows/reconcile.yml   hourly sweep + workflow_dispatch
+hub only:   .github/workflows/reconcile.yml   daytime sweep + workflow_dispatch
             scripts/setup-project.sh          idempotent board/field creation
             stub/wayfinder.yml                the file repos copy in
 ```
@@ -122,7 +122,7 @@ hub only:   .github/workflows/reconcile.yml   hourly sweep + workflow_dispatch
 | `scripts/derive.mjs` | Entry point with three modes (below). Resolves the project lazily so non-wayfinder issues exit without any board reads. |
 | `action.yml` | Composite action. Deliberately skips `setup-node` (the script is dependency-free ESM; runner images ship a new-enough Node) to keep runs seconds shorter against the minutes budget. Event inputs pass through the environment, never interpolated into shell, so issue payloads cannot inject commands. |
 | `.github/workflows/sync.yml` | Reusable event workflow. Holds the board's identity (owner/number defaults) so adding a repo never means configuring the board. Gates on a `wayfinder:` label check *before* spending a runner. |
-| `.github/workflows/reconcile.yml` | Hourly cron (`17 * * * *`, off the hour to dodge scheduler contention) plus `workflow_dispatch`, under a concurrency group so a sweep and an event sync cannot race on the same card. |
+| `.github/workflows/reconcile.yml` | Cron `17 4-18 * * *` — hourly through the working day, off the hour to dodge scheduler contention — plus `workflow_dispatch`, under a concurrency group so a sweep and an event sync cannot race on the same card. |
 | `stub/wayfinder.yml` | What a participating repo copies to `.github/workflows/wayfinder.yml`. |
 | `scripts/setup-project.sh` | One-time, idempotent: creates the board, its fields and its five views — `All maps` first, filtered to `label:"wayfinder:map"` — then prints the `gh variable set` commands the workflows need. Views go through GraphQL (`gh project` has no view commands); it creates missing views and never updates existing ones, so UI tweaks survive a re-run. Grouping and sorting have no mutation input at all and are printed as a three-click manual tail. |
 
@@ -153,12 +153,19 @@ creating tickets, so a freshly charted ticket briefly shows `Ready` before settl
 
 1. **Sibling recompute on close/reopen** — covers `Blocked → Ready`, the transition that
    actually happens during a working session.
-2. **Hourly reconcile sweep** — corrects everything else.
+2. **Reconcile sweep, hourly through the working day** — corrects everything else.
 3. **`workflow_dispatch`** on reconcile, for "fix it now".
 
+The sweep is `17 4-18 * * *`, not `17 * * * *`. Actions cron is UTC and never observes DST, so
+the window is chosen to sit inside 05:00–20:00 Europe/Amsterdam under both offsets: 06:17–20:17
+CEST and 05:17–19:17 CET. Extending it at either end would fire during the quiet hours in one
+half of the year. The cost is a summer morning hour and the overnight gap — both acceptable,
+because drift only matters when someone is looking at the board, and the first morning sweep (or
+a manual dispatch) clears it.
+
 The cron lives **only in the hub**, and this is an economics decision: the hub is public, where
-Actions minutes are unlimited (~720 runs/month at no cost). The same cron copied into six
-private participating repos would be ~4,300 runs against the 2,000-minute monthly budget a Free
+Actions minutes are unlimited (~456 runs/month at no cost). The same cron copied into six
+private participating repos would be ~2,700 runs against the 2,000-minute monthly budget a Free
 plan allows (Team: 3,000). Do not make it more frequent, and do not move it into the stub.
 
 ### Failure philosophy
@@ -233,13 +240,13 @@ with one map and four sub-issues covering `Ready`, `In progress`, `Blocked`, and
 [deployed reconcile run](https://github.com/gruvyworks/wayfinder-project-sync/actions/runs/30905902149)
 populated all ten cards, proving the hub's App can read and reconcile both repositories.
 
-The fixtures deliberately carry no workflow stub or secrets — they participate via the hourly
+The fixtures deliberately carry no workflow stub or secrets — they participate via the scheduled
 hub reconciliation only. Event-driven updates for them would require committing
 `stub/wayfinder.yml` and configuring the two App secrets in each.
 
 ### Open items
 
-1. Decide whether the fixtures need event-driven updates (see above); hourly reconciliation may
+1. Decide whether the fixtures need event-driven updates (see above); scheduled reconciliation may
    be enough.
 2. Exercise a live transition: assign a `Ready` ticket, close a blocker, confirm the cards move.
 

@@ -29,7 +29,7 @@ GitHub's built-in "closed → Done" workflow and manual triage keep working unto
 ## Design decisions worth knowing
 
 - **One public hub, many repos.** Participating repos add a tiny workflow stub referencing the
-  hub `@v1`; derivation logic lives in one place. The hourly reconcile sweep also runs in the
+  hub `@v1`; derivation logic lives in one place. The scheduled reconcile sweep also runs in the
   hub because a public repo has unlimited Actions minutes.
 - **GitHub App, not a PAT.** An org-owned board is the only kind that supports a least-privilege
   `Projects` permission. The App's short-lived installation tokens mean no credential rotation.
@@ -37,7 +37,8 @@ GitHub's built-in "closed → Done" workflow and manual triage keep working unto
   org points the stub at its own board via inputs, no fork needed.
 - **Events plus reconciliation.** GitHub Actions has no trigger for dependency or sub-issue
   changes, so event-driven updates are backstopped by sibling recompute on close/reopen, an
-  hourly reconcile that merges label search with existing board items, and manual dispatch.
+  daytime-hourly reconcile that merges label search with existing board items, and manual
+  dispatch.
 - **Pure derivation core.** The rule table lives in `scripts/lib/derive-core.mjs` with no
   network or process state, covered by a fast offline test suite
   (`node --test 'scripts/lib/*.test.mjs'`).

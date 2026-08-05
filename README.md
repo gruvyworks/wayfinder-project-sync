@@ -121,11 +121,16 @@ GitHub has `issue_dependencies` and `sub_issues` **webhook** events, but neither
 an Actions trigger — only `issues` is. Since wayfinder wires blocking edges in a second pass
 after creating tickets, a freshly charted ticket briefly shows `Ready` before settling to
 `Blocked`. Three backstops close the gap: sibling recompute on close/reopen (the transition that
-actually happens during a session), an hourly reconcile sweep, and `workflow_dispatch` on that
-sweep for "fix it now".
+actually happens during a session), a reconcile sweep every hour through the working day, and
+`workflow_dispatch` on that sweep for "fix it now".
+
+The sweep runs `17 4-18 * * *`. Actions cron is UTC and ignores DST, so that window is picked to
+land inside 05:00–20:00 Europe/Amsterdam under both offsets — 06:17–20:17 CEST, 05:17–19:17 CET.
+Nothing sweeps overnight; the first morning run clears any drift, and `workflow_dispatch` covers
+impatience.
 
 The cron lives **only in the hub**, and that is an economics decision: a public repo has
-unlimited Actions minutes, where the same cron copied into six private repos would be ~4,300 runs
+unlimited Actions minutes, where the same cron copied into six private repos would be ~2,700 runs
 against the 2,000-minute budget a Free plan allows (Team: 3,000). Do not make it more frequent,
 and do not move it into the stub.
 
@@ -158,7 +163,7 @@ Everything else is a variable.
 | `scripts/setup-project.sh` | One-time, idempotent board, field and view creation. |
 | `action.yml` | The composite action the workflows call. |
 | `.github/workflows/sync.yml` | Reusable event workflow; holds the board's identity. |
-| `.github/workflows/reconcile.yml` | Hourly sweep plus `workflow_dispatch`. Hub only. |
+| `.github/workflows/reconcile.yml` | Waking-hours sweep plus `workflow_dispatch`. Hub only. |
 | `stub/wayfinder.yml` | The file a participating repo copies in. |
 | `docs/` | Reference, guides and change records — see [Documentation](#documentation). |
 
