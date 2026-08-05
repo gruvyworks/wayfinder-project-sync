@@ -124,7 +124,7 @@ is satisfied vacuously.
 Routing different repositories to different boards was never considered by this
 plan, and is not possible without an upstream change — the reconcile search is
 scoped by owner, not by repository set. See
-[`2026-08-05-per-repository-board-routing`](../2026-08-05-per-repository-board-routing/idea.md).
+[`2026-08-05-per-repository-board-routing`](../../active/2026-08-05-per-repository-board-routing/idea.md).
 
 ## Outstanding
 

@@ -13,7 +13,7 @@ derivation code and without a sweep on one board claiming another board's issues
 
 Not yet justified. This record exists so the constraint is written down rather
 than rediscovered, and so the deployment in
-[`2026-08-05-growx-tech-deployment`](../2026-08-05-growx-tech-deployment/plan.md)
+[`2026-08-05-growx-tech-deployment`](../../archive/2026-08-05-growx-tech-deployment/plan.md)
 is not read as having considered and rejected it. It had not considered it at
 all.
 
